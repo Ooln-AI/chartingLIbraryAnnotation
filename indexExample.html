@@ -1,0 +1,49 @@
+<!DOCTYPE HTML>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TradingView - Annotation Example</title>
+    
+    <script src="charting_library/charting_library.standalone.js"></script>
+    <script src="datafeeds/udf/dist/bundle.js"></script>
+  </head>
+  <body>
+    <div id="chartContainer"></div>
+    
+    <script>
+      // Create the TradingView widget and assign it to a variable.
+      var widget = new TradingView.widget({
+        container: 'chartContainer',
+        locale: 'en',
+        library_path: 'charting_library/',
+        datafeed: new Datafeeds.UDFCompatibleDatafeed("https://demo-feed-data.tradingview.com"),
+        symbol: 'AAPL',
+        interval: '1D',
+        fullscreen: true,
+        debug: true,
+      });
+      
+      // Wait until the chart is fully loaded.
+      widget.onChartReady(() => {
+        // Convert "2018-03-27" to a Unix timestamp (seconds)
+        const annotationTime = Math.floor(new Date("2018-03-27T00:00:00").getTime() / 1000);
+        
+        // Choose a price level for the annotation. Adjust as needed.
+        const annotationPrice = 140;
+        
+        // Create the annotation on the chart.
+        widget.activeChart().createMultipointShape(
+          [{ time: annotationTime, price: annotationPrice }],
+          {
+            shape: "annotation",
+            text: "Hello World",
+            disableSelection: false,
+            disableSave: false,
+          }
+        );
+      });
+    </script>
+  </body>
+</html>
