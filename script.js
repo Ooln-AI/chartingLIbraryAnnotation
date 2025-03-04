@@ -72,7 +72,7 @@ class PolygonDatafeedWithMarks {
     const color = isSell
       ? { border: "#FF0000", background: "#FF0000" }
       : { border: "#008000", background: "#008000" };
-    const tooltip = `Time: ${row.Time}\nTicker: ${row.Ticker}\nExpiry: ${row.Expiry}\nStrike: ${row.Strike}\nInstrument: ${row.Instrument}\nQuantity: ${row.Quantity}\nNet Proceeds: ${row.Net_proceeds}\nSymbol: ${row.Symbol}\nProceeds: ${row.Proceeds}\nComm Fee: ${row.Comm_fee}`;
+    const tooltip = `\"Time: ${row.Time}\", \"Ticker: ${row.Ticker}\", \"Expiry: ${row.Expiry}\", \"Strike: ${row.Strike}\", \"Instrument: ${row.Instrument}\", \"Quantity: ${row.Quantity}\", \"Net Proceeds: ${row.Net_proceeds}\", \"Symbol: ${row.Symbol}\", \"Proceeds: ${row.Proceeds}\", \"Comm Fee: ${row.Comm_fee}`;
     return {
       id: row.DateTime,
       time: time,
@@ -85,6 +85,73 @@ class PolygonDatafeedWithMarks {
     };
   }
 
+  async searchSymbols(userInput, exchange, symbolType, onResultReadyCallback) {
+    try {
+      // Validate user input
+      if (!userInput || userInput.trim() === "") {
+        onResultReadyCallback([]);
+        return;
+      }
+
+      const apiKey = this.apiKey;
+      const baseUrl = "https://api.polygon.io/v3/reference/tickers";
+
+      // Prepare common query parameters
+      let queryParams = `apiKey=${apiKey}&limit=50`;
+      if (exchange) {
+        queryParams += `&primary_exchange=${exchange}`;
+      }
+      if (symbolType) {
+        queryParams += `&type=${symbolType}`;
+      }
+
+      // Search by ticker (convert to uppercase since tickers are typically uppercase)
+      const tickerInput = userInput.toUpperCase();
+      const tickerUrl = `${baseUrl}?ticker.gte=${tickerInput}&${queryParams}`;
+
+      // Search by name (keep as-is for case sensitivity in names)
+      const nameUrl = `${baseUrl}?name.gte=${userInput}&${queryParams}`;
+
+      // Fetch both ticker and name results concurrently
+      const [tickerResponse, nameResponse] = await Promise.all([
+        fetch(tickerUrl),
+        fetch(nameUrl),
+      ]);
+
+      const tickerData = await tickerResponse.json();
+      const nameData = await nameResponse.json();
+
+      const tickerResults = tickerData.results || [];
+      const nameResults = nameData.results || [];
+
+      // Combine results and remove duplicates based on ticker
+      const allResults = [...tickerResults, ...nameResults];
+      const uniqueResults = Array.from(new Set(allResults.map((item) => item.ticker)))
+        .map((ticker) => allResults.find((item) => item.ticker === ticker));
+
+      // Map to TradingView format
+      const symbols = uniqueResults.map((item) => ({
+        symbol: item.ticker,
+        full_name: item.ticker,
+        description: item.name,
+        exchange: item.primary_exchange,
+        type: item.type,
+      }));
+
+      // Filter results to match user input (ticker or name prefix)
+      const filteredSymbols = symbols.filter((symbol) => {
+        const tickerMatch = symbol.symbol.toUpperCase().startsWith(tickerInput);
+        const nameMatch = symbol.description.toLowerCase().startsWith(userInput.toLowerCase());
+        return tickerMatch || nameMatch;
+      });
+
+      // Return the filtered symbols via the callback
+      onResultReadyCallback(filteredSymbols);
+    } catch (error) {
+      console.error("Error searching symbols:", error);
+      onResultReadyCallback([]); // Return empty array on error
+    }
+  }
   // Provide configuration data to TradingView
   onReady(callback) {
     setTimeout(() => {
