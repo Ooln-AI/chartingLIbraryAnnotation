@@ -8,7 +8,7 @@ function getParameterByName(name) {
 
 // Custom datafeed class using Polygon.io and CSV annotations
 class PolygonDatafeedWithMarks {
-  constructor(apiKey, csvFilename = "sampleCSV.csv") {
+  constructor(apiKey, csvFilename = "sampleCSV.csv") { // Default CSV filename
     this.apiKey = apiKey;
     this.baseUrl = "https://api.polygon.io/v2/aggs";
     this.marks = [];
@@ -43,8 +43,6 @@ class PolygonDatafeedWithMarks {
           });
         })
         .filter((obj) => obj !== null);
-      console.log("CSV data loaded and marks updated.");
-      console.log("The marks are:", this.marks);
     } catch (error) {
       console.error("Error loading CSV:", error);
     }
@@ -75,6 +73,7 @@ class PolygonDatafeedWithMarks {
     const tooltip = `\"Time: ${row.Time}\", \"Ticker: ${row.Ticker}\", \"Expiry: ${row.Expiry}\", \"Strike: ${row.Strike}\", \"Instrument: ${row.Instrument}\", \"Quantity: ${row.Quantity}\", \"Net Proceeds: ${row.Net_proceeds}\", \"Symbol: ${row.Symbol}\", \"Proceeds: ${row.Proceeds}\", \"Comm Fee: ${row.Comm_fee}`;
     return {
       id: row.DateTime,
+      ticker: row.Ticker.trim().toUpperCase(),
       time: time,
       color: color,
       text: tooltip,
@@ -85,6 +84,7 @@ class PolygonDatafeedWithMarks {
     };
   }
 
+  // Search for symbols using Polygon.io API, called by TradingView
   async searchSymbols(userInput, exchange, symbolType, onResultReadyCallback) {
     try {
       // Validate user input
@@ -152,7 +152,7 @@ class PolygonDatafeedWithMarks {
       onResultReadyCallback([]); // Return empty array on error
     }
   }
-  // Provide configuration data to TradingView
+  // Provide configuration data to TradingView when requested
   onReady(callback) {
     setTimeout(() => {
       callback({
@@ -160,7 +160,7 @@ class PolygonDatafeedWithMarks {
         supports_marks: true,
         supports_timescale_marks: true,
         supports_time: true,
-        supported_resolutions: ["D", "2D", "3D", "W", "3W", "M", "6M", "1Y"],
+        supported_resolutions: ["1", "3", "5", "15", "30", "60", "D", "2D", "3D", "W", "3W", "M", "6M", "12M"], //currently just support up to daily resolution
         exchanges: [
           { value: "", name: "All Exchanges", desc: "" },
           { value: "NasdaqNM", name: "NasdaqNM", desc: "NasdaqNM" },
@@ -185,11 +185,12 @@ class PolygonDatafeedWithMarks {
       session: "24x7", // 24/7 trading
       timezone: "America/New_York",
       minmov: 1,
-      exchange: "NYSE",
+      exchange: "NASDAQ", // change to NASDAQ
       pricescale: 100,
       has_intraday: true,
       has_daily: true,
-      supported_resolutions: ["1D", "2D", "3D", "W", "3W", "M", "6M"],
+      // supported_resolutions: ["1D", "2D", "3D", "W", "3W", "M", "6M"], //add lower timeframe, 1m, 3m, 5m, 15m, 30m, 1h, 1d, 1w, 1m, 1y, 5y
+      supported_resolutions: ["1", "3", "5", "15", "30", "60", "D", "2D", "3D", "W", "3W", "M", "6M", "12M"]
     };
     setTimeout(() => {
       if (symbolInfo) {
@@ -202,8 +203,14 @@ class PolygonDatafeedWithMarks {
 
   // Map TradingView resolution to Polygon.io multiplier and timespan
   getMultiplierAndTimespan(resolution) {
-    console.log("Mapping resolution:", resolution); // Debug log
+    // console.log("Mapping resolution:", resolution); // Debug log
     const resolutionMap = {
+      "1": { multiplier: 1, timespan: "minute" },
+      "3": { multiplier: 3, timespan: "minute" },
+      "5": { multiplier: 5, timespan: "minute" },
+      "15": { multiplier: 15, timespan: "minute" },
+      "30": { multiplier: 30, timespan: "minute" },
+      "60": { multiplier: 1, timespan: "hour" },
       "1D": { multiplier: 1, timespan: "day" },
       "2D": { multiplier: 2, timespan: "day" },
       "3D": { multiplier: 3, timespan: "day" },
@@ -211,6 +218,7 @@ class PolygonDatafeedWithMarks {
       "3W": { multiplier: 3, timespan: "week" },
       "M": { multiplier: 1, timespan: "month" },
       "6M": { multiplier: 6, timespan: "month" },
+      "12M": { multiplier: 12, timespan: "month" }
     };
 
     const mapped = resolutionMap[resolution];
@@ -224,6 +232,7 @@ class PolygonDatafeedWithMarks {
 
   // Fetch historical bars from Polygon.io
   async getBars(symbolInfo, resolution, periodParams, onHistoryCallback, onErrorCallback) {
+    console.log("getBars called with:", { symbol: symbolInfo.ticker, resolution, from: periodParams.from, to: periodParams.to });
     try {
       const { multiplier, timespan } = this.getMultiplierAndTimespan(resolution);
       const from = periodParams.from * 1000; // Convert to milliseconds
@@ -232,7 +241,6 @@ class PolygonDatafeedWithMarks {
       console.log("Fetching bars from:", url);
       const response = await fetch(url);
       const data = await response.json();
-      console.log("The data is:", data);
       if (data.status !== "OK") {
         onHistoryCallback([], { noData: true });
         return;
@@ -289,7 +297,10 @@ class PolygonDatafeedWithMarks {
 
   // Provide marks from CSV data
   getMarks(symbolInfo, from, to, onDataCallback, resolution) {
-    const filteredMarks = this.marks.filter((mark) => mark.time >= from && mark.time <= to);
+    const concurrenTicker = symbolInfo.ticker.toUpperCase();
+    const filteredMarks = this.marks.filter((mark) => mark.ticker == concurrenTicker &&
+                                                      mark.time >= from 
+                                                      && mark.time <= to);
     onDataCallback(filteredMarks);
   }
 }
@@ -306,7 +317,7 @@ function initOnReady() {
     library_path: "charting_library/",
     locale: getParameterByName("lang") || "en",
     disabled_features: ["use_localstorage_for_settings"],
-    enabled_features: ["study_templates", "two_character_bar_marks_labels"],
+    // enabled_features: ["study_templates", "two_character_bar_marks_labels"],
     // charts_storage_url: "https://saveload.tradingview.com",
     charts_storage_api_version: "1.1",
     client_id: "tradingview.com",
