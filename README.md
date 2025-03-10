@@ -10,7 +10,7 @@ The `master` branch contains the most recent features and fixes.
 Before using the library, please read the [documentation][doc-url] and the [Best Practices][best-practices-url] article.
 
 ## Polygon datafeeds
-Rather than using TradingView datafeed or sample datafeeds, the script uses datafeeds from Polygon in order to incorporate our own CSV file, which contains user's transactions of different type, like stock, option. Please read the Stocks API [Documentation]([text](https://polygon.io/docs/stocks/getting-started)), which provides REST endpoints that let you query the latest market data from all US stock exchanges.
+Rather than using TradingView datafeed or sample datafeeds, the script uses datafeeds from Polygon in order to incorporate our own CSV file, which contains user's transactions of different type, like stock, option. Please read the Stocks API [documentation](https://polygon.io/docs/stocks/getting-started), which provides REST endpoints that let you query the latest market data from all US stock exchanges.
 
 > NOTE: since we're using free-tier serivce, we have 5 API calls per minute.
 
@@ -36,3 +36,4 @@ script.js: Custom datafeed from Polygon and a local CSV file to load symbolic da
 [issues-url]: https://github.com/tradingview/charting_library/issues
 [x-url]: https://twitter.com/intent/follow?screen_name=tv_charts
 [discord-url]: https://discord.gg/UC7cGkvn4U
+[]
